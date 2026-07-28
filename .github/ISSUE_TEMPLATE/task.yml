@@ -1,0 +1,26 @@
+name: Engineering task
+description: Track a concrete implementation or documentation task
+title: "[Task]: "
+labels:
+  - task
+body:
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and file paths
+      description: List included work and expected repository paths.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      description: State the verification required before closing the task.
+    validations:
+      required: true
