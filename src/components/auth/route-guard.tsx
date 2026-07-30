@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { readStoredAuthState, resolveRouteDecision, type AuthState } from "@/features/auth/route-access";
+import {
+  readStoredAuthState,
+  resolveRouteDecision,
+  type AuthState,
+} from "@/features/auth/route-access";
 import { subscribeToAuthSession } from "@/lib/auth-storage";
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
@@ -30,8 +34,14 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
 
   if (authState === "checking" || decision?.type === "redirect") {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4" role="status" aria-live="polite">
-        <p className="text-sm text-slate-500">Dang kiem tra phien dang nhap...</p>
+      <div
+        className="flex min-h-screen items-center justify-center px-4"
+        role="status"
+        aria-live="polite"
+      >
+        <p className="text-sm text-slate-500">
+          Đang kiểm tra phiên đăng nhập...
+        </p>
       </div>
     );
   }
