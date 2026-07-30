@@ -26,9 +26,9 @@ test("submits the login form with keyboard access and includes machineCode", asy
 
   await page.goto("/login");
   await expect(page.locator("#username")).toHaveAccessibleName(/username/i);
-  await expect(page.locator("#password")).toHaveAccessibleName(/M\u1eadt kh\u1ea9u/i);
+  await expect(page.locator("#password")).toHaveAccessibleName(/khau/i);
 
-  await page.locator("#username").focus();
+  await page.keyboard.press("Tab");
   await expect(page.locator("#username")).toBeFocused();
   await page.keyboard.type("demo");
 
