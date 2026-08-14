@@ -26,8 +26,13 @@ GitHub Issue → Specify → Plan → Tasks → Feature branch → Pull Request
 
 - The PR has a linked issue and a clear user or maintenance outcome.
 - Acceptance criteria and relevant edge cases are covered.
-- Next.js conventions, Tailwind CSS, shadcn, TanStack Query, reuse, and accessibility
-  requirements from the constitution are satisfied or explicitly justified.
+- Next.js conventions are followed without introducing a Vite application/build path;
+  all UI uses Tailwind CSS and shadcn/ui without Flowbite React.
+- User-facing changes identify and visually compare against the equivalent
+  `cadpro-tmms-frontend` screen/component; layout, style, and colors match unless an
+  explicit product requirement documents the deviation.
+- TanStack Query, reuse, and accessibility requirements from the constitution are
+  satisfied or explicitly justified.
 - Loading, empty, error, and success states are verified where applicable.
 - CI is green, or an exception is documented with owner and follow-up issue.
 

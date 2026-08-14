@@ -41,9 +41,14 @@
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 - **Architecture**: Confirm the feature uses Next.js conventions and documents any
-  server/client boundary decisions.
-- **UI system**: Confirm Tailwind CSS and shadcn components are used; justify any new
-  custom primitive or UI dependency.
+  server/client boundary decisions. Confirm it does not introduce a Vite application
+  entry point, development server, or production build path.
+- **UI system**: Confirm all user-facing UI uses Tailwind CSS and shadcn/ui components,
+  does not use Flowbite React, and justifies any new custom primitive or UI dependency.
+- **Legacy fidelity**: Identify the equivalent screen/component in the sibling
+  `cadpro-tmms-frontend` project and document how layout, spacing, sizing, style, and
+  colors will be reproduced. If no equivalent exists or a redesign is required, record
+  the explicit requirement and deviation in Complexity Tracking.
 - **Data access**: Confirm client-side API calls use TanStack Query with query keys,
   loading/error states, and invalidation behavior defined where applicable.
 - **Reuse**: Identify shared components and verify feature-specific assumptions remain at

@@ -98,6 +98,19 @@
 - **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
 - **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
+### UI Fidelity Requirements *(include for user-facing features)*
+
+<!--
+  Identify the equivalent screen, layout, or component in the legacy
+  `cadpro-tmms-frontend` product. Describe the observable layout, style, color, responsive,
+  and interaction characteristics that must remain equivalent. If no legacy equivalent
+  exists or the feature intentionally changes the design, state that boundary and the
+  product reason explicitly. Keep this section technology-agnostic.
+-->
+
+- **UIR-001**: [Legacy screen/component reference and observable fidelity requirement]
+- **UIR-002**: [Any intentional visual deviation and its product rationale, or remove]
+
 ### Key Entities *(include if feature involves data)*
 
 - **[Entity 1]**: [What it represents, key attributes without implementation]

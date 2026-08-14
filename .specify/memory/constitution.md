@@ -1,12 +1,14 @@
 <!--
 Sync Impact Report
-Version change: template/unversioned -> 1.0.0
-Modified principles: template placeholders -> I. Next.js Application Architecture; II. Tailwind CSS and shadcn UI; III. TanStack Query API Integration; IV. Reusable Components; V. Quality and Accessibility
-Added sections: Technology Constraints; Development Workflow
+Version change: 1.0.0 -> 1.1.0
+Modified principles: I. Next.js Application Architecture (clarified Next.js, not Vite);
+II. Tailwind CSS and shadcn UI -> II. shadcn UI and Legacy Design Fidelity
+Added sections: none
 Removed sections: none
-Templates requiring updates: ✅ .specify/templates/plan-template.md; ✅ .specify/templates/tasks-template.md; ✅ .specify/templates/spec-template.md validated with no changes required
+Templates requiring updates: ✅ .specify/templates/plan-template.md;
+✅ .specify/templates/spec-template.md; ✅ .specify/templates/tasks-template.md
 Command files requiring updates: ✅ installed speckit skill files reviewed; no outdated project-specific governance references found
-Runtime guidance: ⚠ README.md and docs/quickstart.md not present; no runtime guidance file required follow-up
+Runtime guidance: ✅ docs/SDLC.md; ✅ .github/pull_request_template.md
 Follow-up TODOs: TODO(RATIFICATION_DATE): original adoption date is not recorded in the repository
 -->
 
@@ -16,18 +18,26 @@ Follow-up TODOs: TODO(RATIFICATION_DATE): original adoption date is not recorded
 
 ### I. Next.js Application Architecture
 
-The application MUST use Next.js as its web application framework. New routes, pages,
-layouts, and server/client boundaries MUST follow the existing Next.js conventions and
-use the framework's routing and rendering capabilities where applicable. Rationale:
-consistent framework usage keeps navigation, rendering, and project structure predictable.
+The application MUST use Next.js as its web application framework, development server,
+and production build pipeline; it MUST NOT be implemented or scaffolded as a Vite
+application. New routes, pages, layouts, and server/client boundaries MUST follow the
+existing Next.js conventions and use the framework's routing and rendering capabilities
+where applicable. Test tooling MAY use Vite internals when required by Vitest, but this
+MUST NOT introduce a Vite application entry point or build path. Rationale: a single
+application framework keeps navigation, rendering, and project structure predictable.
 
-### II. Tailwind CSS and shadcn UI
+### II. shadcn UI and Legacy Design Fidelity
 
-UI styling MUST use Tailwind CSS and the project's shadcn component system. A feature
-MUST reuse and compose an appropriate shadcn component before introducing a custom UI
-primitive. Custom primitives are permitted only when shadcn does not provide the needed
-behavior or when a documented product requirement demands a distinct interaction.
-Rationale: shared primitives reduce visual drift and maintenance cost.
+All user-facing UI MUST use Tailwind CSS and the project's shadcn/ui component system;
+Flowbite React components and Flowbite-specific UI patterns MUST NOT be introduced. For
+every new or migrated screen, layout, or component, the implementation MUST first inspect
+the equivalent UI in the sibling `cadpro-tmms-frontend` project and reproduce its style,
+layout, spacing, sizing, and color treatment with shadcn/ui composition. A new visual
+design is permitted only when no legacy equivalent exists or an explicit product
+requirement requires a change, and the deviation MUST be documented in the feature plan.
+Custom primitives are permitted only when shadcn/ui cannot provide the required behavior.
+Rationale: the migration changes the implementation system without changing the product's
+established visual language or user familiarity.
 
 ### III. TanStack Query API Integration
 
@@ -57,20 +67,25 @@ interactions are part of the product contract.
 
 ## Technology Constraints
 
-The baseline frontend stack is Next.js, Tailwind CSS, shadcn UI components, and TanStack
-Query. Feature plans MUST record these dependencies and identify any exception. New UI
-dependencies MUST be justified when an existing shadcn or project utility cannot satisfy
-the requirement. API integration MUST respect the project's established authentication,
-error, and environment configuration conventions.
+The baseline frontend stack is Next.js, Tailwind CSS, shadcn/ui components, and TanStack
+Query. Vite MUST NOT replace the Next.js application or build pipeline, and Flowbite React
+MUST NOT be used for application UI. Feature plans MUST record these dependencies and
+identify any exception. New UI dependencies MUST be justified when an existing shadcn/ui
+or project utility cannot satisfy the requirement. API integration MUST respect the
+project's established authentication, error, and environment configuration conventions.
 
 ## Development Workflow
 
 Feature work MUST begin with a specification and implementation plan. The plan's
 Constitution Check MUST be passed before implementation and re-checked after design.
-Tasks MUST identify concrete repository paths, map user-story work to independently
-verifiable increments, and include cross-cutting UI states and API behavior when relevant.
-Code review MUST verify constitution compliance, especially component reuse, TanStack
-Query usage, accessibility, and justified deviations.
+For user-facing work, the specification and plan MUST identify the corresponding legacy
+screen or component in `cadpro-tmms-frontend`, or explicitly state that none exists. Tasks
+MUST identify concrete repository paths, name the shadcn/ui primitives used, map
+user-story work to independently verifiable increments, and include visual comparison
+against the legacy UI plus cross-cutting UI states and API behavior when relevant. Code
+review MUST verify constitution compliance, especially legacy design fidelity, shadcn/ui
+composition, component reuse, TanStack Query usage, accessibility, and justified
+deviations.
 
 ## Governance
 
@@ -88,4 +103,4 @@ for clarifications and non-semantic wording changes. Compliance MUST be reviewed
 planning and code review, with a periodic review when the technology stack or shared UI
 system changes.
 
-**Version**: 1.0.0 | **Ratified**: TODO(RATIFICATION_DATE): original adoption date is not recorded in the repository | **Last Amended**: 2026-07-28
+**Version**: 1.1.0 | **Ratified**: TODO(RATIFICATION_DATE): original adoption date is not recorded in the repository | **Last Amended**: 2026-08-14
