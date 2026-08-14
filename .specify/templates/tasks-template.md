@@ -28,8 +28,13 @@ description: "Task list template for feature implementation"
   do not invent a backend or mobile path for frontend-only work.
 - **API state**: tasks involving client-side server state MUST name the TanStack Query
   query/mutation module or hook path.
-- **UI**: tasks MUST identify the shadcn component being reused or document why a custom
-  component is required.
+- **UI**: tasks MUST identify the shadcn/ui component being reused or document why a
+  custom component is required; Flowbite React MUST NOT be used.
+- **Legacy fidelity**: each user-facing UI task MUST name the corresponding screen or
+  component path in the sibling `cadpro-tmms-frontend` project and preserve its layout,
+  spacing, sizing, style, and colors unless the plan documents an approved deviation.
+- **Build system**: tasks MUST use the existing Next.js commands and structure and MUST
+  NOT introduce a Vite application entry point or build path.
 - Paths shown below are examples; adjust them to the concrete structure in `plan.md`.
 
 <!--
@@ -162,6 +167,8 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Performance optimization across all stories
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
+- [ ] TXXX Compare user-facing layout, spacing, sizing, style, colors, responsive behavior,
+  and interaction states with the mapped legacy UI
 - [ ] TXXX Run quickstart.md validation
 
 ---
