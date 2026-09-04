@@ -1,167 +1,188 @@
 ---
 
-description: "Dependency-ordered implementation tasks for user login"
+description: "Dependency-ordered tasks for aligning the user-login backend contract"
 
 ---
 
-# Tasks: User Login
+# Tasks: User Login Contract Alignment
 
 **Input**: Design documents from `specs/002-user-login/`
 
-**Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md),
-[data-model.md](./data-model.md), [contracts/](./contracts/), [quickstart.md](./quickstart.md)
+**Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md),
+[research.md](./research.md), [data-model.md](./data-model.md),
+[contracts/auth-login.md](./contracts/auth-login.md), [quickstart.md](./quickstart.md)
 
-**Tests**: Included because the plan and constitution require validation of login states,
-API mutation behavior, storage safety, and accessibility.
+**Tests**: Included because FR-033 explicitly requires automated exact-case contract
+examples and regression coverage, and the constitution requires validation of API,
+storage, route, loading, error, and accessibility behavior.
 
-**Organization**: Tasks are grouped by user story. Shared infrastructure and the backend
-contract gate are completed before story implementation.
+**Organization**: Tasks are grouped by user story. Among the P1 stories, User Story 5 is
+implemented first because its exact response contract is foundational for successful
+login, failure handling, and route-access session validation. The existing Next.js,
+shadcn/Tailwind, and TanStack Query infrastructure is retained.
 
-## Phase 1: Setup (Shared Infrastructure)
+## Format: `[ID] [P?] [Story] Description`
 
-**Purpose**: Initialize the frontend dependencies and validation tools required by the
-login feature.
-
-- [X] T001 Initialize the Next.js TypeScript application and package manifest in `package.json`, including `@fingerprintjs/fingerprintjs` pinned to `5.2.0`
-- [X] T002 [P] Configure Tailwind CSS in `tailwind.config.*`, `postcss.config.*`, and `src/app/globals.css`
-- [X] T003 [P] Configure shadcn UI metadata and shared styling in `components.json` and `src/lib/utils.ts`
-- [X] T004 [P] Install and configure the TanStack Query provider in `src/app/providers.tsx` and `src/app/layout.tsx`
-- [X] T005 [P] Configure component/unit test tooling in `vitest.config.*` and `tests/setup.*`
-- [X] T006 [P] Configure end-to-end test tooling in `playwright.config.*`
-
----
-
-## Phase 2: Foundational (Blocking Prerequisites)
-
-**Purpose**: Establish the contract, types, storage boundary, and API error boundary that
-all login stories depend on.
-
-**⚠️ CRITICAL**: Backend-dependent implementation tasks MUST NOT begin until T007 has
-replaced the TBD values in `contracts/auth-login.md`.
-
-- [X] T007 Confirm the backend request body, status handling, token/user response, FingerprintJS machine code, 2FA message, environment endpoint, and dashboard redirect in `specs/002-user-login/contracts/auth-login.md`
-- [X] T008 [P] Define backend boundary, login request, login response, safe session, and normalized error types in `src/features/auth/types.ts`
-- [X] T009 [P] Implement namespaced localStorage read/write/clear operations with password and secret-field exclusion in `src/lib/auth-storage.ts`
-- [X] T010 [P] Implement the backend login request adapter with `{ username, password, machineCode }` and normalized error mapping using the confirmed contract in `src/features/auth/api/login.ts`
-- [X] T011 Add response validation and safe-session mapping from backend payload to storage payload in `src/features/auth/mappers/login-response.ts`
-- [X] T012 Add FingerprintJS visitorId generation and machineCode error handling in `src/features/auth/machine-code.ts`
-- [X] T013 Add shared authentication test fixtures for status 1, status -131, invalid credentials, service failure, and malformed response in `tests/features/auth/fixtures.ts`
-
-**Checkpoint**: Contract and shared authentication boundaries are ready; user-story work
-can proceed in priority order.
+- **[P]**: Can run in parallel after its stated dependencies because it touches a
+  different file and does not depend on another incomplete task in the same group.
+- **[Story]**: Maps the task to the numbered user story in `spec.md`.
+- Every task names an exact repository file path.
 
 ---
 
-## Phase 3: User Story 1 - Sign in Successfully (Priority: P1) 🎯 MVP
+## Phase 1: Setup (Shared Test Inputs)
 
-**Goal**: A registered user can submit valid credentials, persist the approved backend
-response, and reach the main page.
+**Purpose**: Replace obsolete lowercase/flat test inputs with one canonical source of
+exact-case response and stored-session examples before changing production boundaries.
 
-**Independent Test**: Mock a confirmed successful backend response, submit valid
-credentials, verify the namespaced localStorage session, and verify redirect to the
-confirmed main-page route.
+- [X] T001 Replace shared auth payload/session builders with exact `Status`/`Message`/`Data` fixtures, complete nested success fields, `-131`, generic failure, lowercase-only, and incomplete-success variants in `tests/features/auth/fixtures.ts`
+
+---
+
+## Phase 2: Foundational (Blocking Types)
+
+**Purpose**: Establish the single compile-time model required by every story.
+
+**⚠️ CRITICAL**: Complete this phase before story implementation so API, mapper,
+storage, route, hook, and UI consumers cannot retain incompatible schemas.
+
+- [X] T002 Define case-sensitive raw envelope, validated `LoginSuccessData`, `LoginSuccessResponse`, allowlisted nested `StoredAuthSession`, business outcome, and normalized API error types in `src/features/auth/types.ts`
+
+**Checkpoint**: Canonical fixtures and shared exact-case types are ready.
+
+---
+
+## Phase 3: User Story 5 - Accept the Backend Response Contract (Priority: P1) 🎯 Contract MVP
+
+**Goal**: Accept complete uppercase backend responses, reject undocumented lowercase
+aliases, and preserve all required `Data` fields without false `MALFORMED_RESPONSE`.
+
+**Independent Test**: Pass a complete `Status: 1` payload through the API decoder and
+response mapper and confirm all required nested fields are retained; repeat with a
+lowercase-only envelope and incomplete success data and confirm both are malformed.
+
+### Tests for User Story 5
+
+- [X] T003 [P] [US5] Add API contract tests for exact uppercase success, reordered properties, lowercase-only rejection, missing `Status`, invalid JSON, and exact uppercase `Message` reads in `tests/features/auth/login-api.test.ts`
+- [X] T004 [P] [US5] Add mapper tests for all required `Data` fields, null/non-object/partial success data, non-empty scalar validation, and empty `roles`/`permissions` arrays in `tests/features/auth/login-response.test.ts`
+
+### Implementation for User Story 5
+
+- [X] T005 [P] [US5] Parse response JSON as `unknown`, validate exact own fields `Status`/`Message`/`Data`, reject lowercase aliases, and keep HTTP transport classification separate from business `Status` in `src/features/auth/api/login.ts`
+- [X] T006 [P] [US5] Implement outcome-aware success validation and map only the eight approved fields into nested `{ Status: 1, Data }` session data in `src/features/auth/mappers/login-response.ts`
+
+**Checkpoint**: The authoritative wire contract is independently accepted and malformed
+lowercase/partial responses are rejected.
+
+---
+
+## Phase 4: User Story 1 - Sign in Successfully (Priority: P1)
+
+**Goal**: A valid exact-case response creates one safe nested session, exposes the
+authenticated user context, and redirects to `/dashboard`.
+
+**Independent Test**: Submit valid credentials against a mocked complete uppercase
+response, then verify the allowlisted localStorage record, authenticated user name, and
+dashboard redirect without a malformed-response error.
 
 ### Tests for User Story 1
 
-- [X] T014 [P] [US1] Test successful status 1 response validation and safe-session mapping in `tests/features/auth/login-response.test.ts`
-- [X] T015 [P] [US1] Test that the auth storage adapter persists only the approved response and excludes password/secret fields in `tests/features/auth/auth-storage.test.ts`
-- [X] T016 [P] [US1] Test login mutation success, storage side effect, and dashboard redirect callback in `tests/features/auth/use-login.test.tsx`
+- [X] T007 [P] [US1] Test atomic persistence of the nested allowlisted successful session and exclusion of password, `Message`, and unknown response fields in `tests/features/auth/auth-storage.test.ts`
+- [X] T008 [P] [US1] Test that uppercase `Status: 1` stores every approved `Data` field and redirects exactly once to `/dashboard` in `tests/features/auth/use-login.test.tsx`
+- [X] T009 [P] [US1] Update the browser login-success mock to the exact backend envelope and assert nested persisted user, organization, token, role, permission, and expiry data in `tests/e2e/login.spec.ts`
 
 ### Implementation for User Story 1
 
-- [X] T017 [US1] Implement the TanStack Query `useMutation` hook with machineCode generation, status 1 success, error, settled, and duplicate-submit behavior in `src/features/auth/hooks/use-login.ts`
-- [X] T018 [US1] Implement the login page route and authenticated redirect boundary in `src/app/(auth)/login/page.tsx`
-- [X] T019 [US1] Compose the shadcn-based login form with username/password fields, submit action, and Tailwind layout in `src/features/auth/components/login-form.tsx`
-- [X] T020 [US1] Add the fixed `/dashboard` route or redirect target integration in `src/app/dashboard/page.tsx`
+- [X] T010 [P] [US1] Update namespaced auth storage writes and typed reads to persist only `{ Status: 1, Data: approvedFields }` atomically in `src/lib/auth-storage.ts`
+- [X] T011 [US1] Handle validated `Status: 1` in the TanStack Query mutation by mapping, persisting, and redirecting only after the complete session is available in `src/features/auth/hooks/use-login.ts`
+- [X] T012 [P] [US1] Replace obsolete flattened `session.user` lookups with nested `session.Data.user_name` and approved role context in `src/components/layout/app-sidebar.tsx`
 
-**Checkpoint**: Valid credentials create a complete safe session and redirect successfully.
+**Checkpoint**: Exact-case success works end to end and produces a complete safe session.
 
 ---
 
-## Phase 4: User Story 2 - Handle Invalid Credentials (Priority: P1)
+## Phase 5: User Story 2 - Handle Invalid Credentials (Priority: P1)
 
-**Goal**: Invalid credentials and service failures produce clear, safe feedback without
-creating a session or redirecting.
+**Goal**: Business and transport failures remain distinct, use only safe uppercase
+`Message`, preserve existing sessions, and never redirect or create partial auth state.
 
-**Independent Test**: Mock invalid-credential, network, server, and malformed-response
-failures and verify each normalized outcome in the login form.
+**Independent Test**: Exercise `Status: -131`, another non-success `Status`, an HTTP
+failure, lowercase-only error data, and a network failure; verify the correct feedback,
+no session write, no redirect, and completion of the pending state.
 
 ### Tests for User Story 2
 
-- [X] T021 [P] [US2] Test normalized invalid-credential, service-error, and status -131 mapping in `tests/features/auth/login-errors.test.ts`
-- [X] T022 [P] [US2] Test that failed login attempts preserve existing storage and do not redirect in `tests/features/auth/login-failure-flow.test.ts`
+- [X] T013 [P] [US2] Add API tests proving non-OK transport responses read only uppercase `Message`, retain parseable backend `Status`, and ignore lowercase `message` in `tests/features/auth/login-api.test.ts`
+- [X] T014 [P] [US2] Add business-outcome tests for `Status: -131`, generic non-success `Status`, safe `Message` fallback, and no false malformed classification in `tests/features/auth/login-errors.test.ts`
+- [X] T015 [P] [US2] Test that business, HTTP, network, invalid-JSON, and malformed-success failures never overwrite a valid existing nested session or navigate in `tests/features/auth/login-failure-flow.test.ts`
 
 ### Implementation for User Story 2
 
-- [X] T023 [US2] Render safe invalid-credential, service-error, and exact status -131 2FA-in-development messages without exposing password or token values in `src/features/auth/components/login-form.tsx`
-- [X] T024 [US2] Ensure mutation failure, status -131, and malformed success responses leave storage unchanged and keep the user on the login route in `src/features/auth/hooks/use-login.ts`
-- [X] T025 [US2] Add accessible error/status announcements and focus behavior for login failures in `src/features/auth/components/login-form.tsx`
+- [X] T016 [P] [US2] Preserve exact backend `Status` and uppercase `Message` through normalized HTTP/network error handling without reading lowercase fields in `src/features/auth/api/login.ts`
+- [X] T017 [US2] Handle `Status: -131`, generic business failures, malformed responses, and transport errors without persistence or navigation in `src/features/auth/hooks/use-login.ts`
+- [X] T018 [P] [US2] Render the exact two-factor-development message and safe recoverable error status with existing accessible shadcn form feedback in `src/features/auth/components/login-form.tsx`
 
-**Checkpoint**: Failed authentication is recoverable, clearly explained, and cannot
-create a partial session.
-
----
-
-## Phase 5: User Story 3 - Understand Form and Loading State (Priority: P2)
-
-**Goal**: Users receive immediate validation and loading feedback and cannot submit the
-same login request repeatedly.
-
-**Independent Test**: Submit missing fields and use a delayed mutation response while
-navigating by keyboard; verify validation, pending state, and completion state.
-
-### Tests for User Story 3
-
-- [X] T026 [P] [US3] Test required-field validation and no-API-call behavior in `tests/components/login-form-validation.test.tsx`
-- [X] T027 [P] [US3] Test pending, disabled-submit, keyboard-submit, and settled states in `tests/components/login-form-loading.test.tsx`
-- [X] T028 [P] [US3] Test login flow keyboard accessibility, machineCode request inclusion, and accessible names in `tests/e2e/login.spec.ts`
-
-### Implementation for User Story 3
-
-- [X] T029 [US3] Add field-level validation for username and password and connect validation errors to shadcn form controls in `src/features/auth/components/login-form.tsx`
-- [X] T030 [US3] Add Tailwind loading layout, pending label, disabled control state, and completion-state cleanup in `src/features/auth/components/login-form.tsx`
-- [X] T031 [US3] Enforce one active login mutation and reset pending state after success, status -131, failure, or network interruption in `src/features/auth/hooks/use-login.ts`
-
-**Checkpoint**: The login form is understandable, keyboard usable, and robust during
-slow or repeated interaction.
+**Checkpoint**: Every failure outcome is recoverable and cannot corrupt authentication state.
 
 ---
 
 ## Phase 6: User Story 4 - Protect Authenticated Routes (Priority: P1)
 
-**Goal**: Anonymous users cannot render protected content, while authenticated users are
-redirected from `/` or `/login` to `/dashboard` without redirect loops.
+**Goal**: Route decisions use the same nested exact-case stored-session schema as login;
+stale lowercase or partial records are anonymous.
 
-**Independent Test**: With no or malformed localStorage session, open `/dashboard` and
-another protected route and confirm redirect to `/login` without protected-content flash;
-with a valid session, open `/` and `/login` and confirm redirect to `/dashboard`.
+**Independent Test**: Seed a complete nested session and verify protected access plus
+`/` and `/login` redirects; repeat with malformed JSON, lowercase/flat records, null or
+partial `Data`, and empty required values and verify redirect to `/login` without content flash.
 
 ### Tests for User Story 4
 
-- [X] T032 [P] [US4] Add e2e coverage for anonymous access to `/dashboard` and another protected route, asserting redirect to `/login` and no protected content in `tests/e2e/route-protection.spec.ts`
-- [X] T033 [P] [US4] Add e2e coverage for authenticated access to `/` and `/login`, asserting redirect to `/dashboard` and no redirect loop in `tests/e2e/route-protection.spec.ts`
-- [X] T034 [P] [US4] Test missing, malformed, and incomplete auth sessions as anonymous route-access decisions in `tests/features/auth/route-access.test.ts`
+- [X] T019 [P] [US4] Add stored-session read tests for exact nested success, stale lowercase/flat data, malformed JSON, primitives, null/partial `Data`, empty tokens/context, and empty role/permission arrays in `tests/features/auth/auth-storage.test.ts`
+- [X] T020 [P] [US4] Update route-access unit tests so only the exact valid `Status: 1` plus complete nested `Data` shape is authenticated in `tests/features/auth/route-access.test.ts`
+- [X] T021 [P] [US4] Seed exact nested valid sessions and lowercase/partial invalid sessions in browser route-protection scenarios in `tests/e2e/route-protection.spec.ts`
 
 ### Implementation for User Story 4
 
-- [X] T035 [US4] Implement route classification and validated checking/anonymous/authenticated access decisions in `src/features/auth/route-access.ts`
-- [X] T036 [US4] Implement a client-side route guard that blocks protected-content render during session checking and redirects per policy in `src/components/auth/route-guard.tsx`
-- [X] T037 [US4] Integrate the route guard into the root app shell while preserving `/login` as a public route in `src/app/layout.tsx` and `src/app/(auth)/login/page.tsx`
+- [X] T022 [P] [US4] Runtime-validate untrusted localStorage reads against the canonical nested session type and ignore or clear stale invalid records in `src/lib/auth-storage.ts`
+- [X] T023 [US4] Update route classification to require `Status === 1`, complete nested `Data`, non-empty identity/organization/tokens, array roles/permissions, and valid `exp_refresh` in `src/features/auth/route-access.ts`
+- [X] T024 [US4] Verify the client guard consumes the updated route-access result without rendering protected content during checking or introducing redirect loops in `src/components/auth/route-guard.tsx`
 
-**Checkpoint**: Protected routes are guarded by default, invalid sessions are treated as
-anonymous, and authenticated entry routes land on `/dashboard`.
+**Checkpoint**: Login persistence and route protection agree on one exact session model.
 
 ---
 
-## Phase 7: Polish & Cross-Cutting Concerns
+## Phase 7: User Story 3 - Understand Form and Loading State (Priority: P2)
 
-**Purpose**: Validate the complete flow and keep documentation aligned with the confirmed
-backend contract.
+**Goal**: Contract migration preserves validation, loading, duplicate-submit prevention,
+keyboard access, and visible completion states without redesigning the legacy-derived UI.
 
-- [X] T038 [P] Update `specs/002-user-login/contracts/auth-login.md` and `specs/002-user-login/quickstart.md` with the configured endpoint and response examples
-- [X] T039 [P] Add login route, API failure, status -131, storage cleanup, machineCode, route-protection, and accessibility verification to `specs/002-user-login/quickstart.md`
-- [ ] T040 Run lint, type-check, unit/component tests, end-to-end login smoke tests, route-protection smoke tests, and build using the commands defined in `package.json`
-- [X] T041 Review `src/features/auth/`, `src/components/ui/`, `src/components/auth/`, and `src/app/` for constitution compliance and document any justified exception in `specs/002-user-login/plan.md`
+**Independent Test**: Submit missing fields and a delayed exact-case response using only
+the keyboard; verify no invalid request, one pending mutation, disabled/loading feedback,
+and return to a non-loading success or error state.
+
+### Tests for User Story 3
+
+- [X] T025 [P] [US3] Re-run and update required-field and no-API-call assertions against the migrated auth types in `tests/components/login-form-validation.test.tsx`
+- [X] T026 [P] [US3] Re-run and update pending, duplicate-submit, settled-success, settled-business-error, and settled-transport-error assertions in `tests/components/login-form-loading.test.tsx`
+- [X] T027 [P] [US3] Verify keyboard submission, accessible names/status announcements, machineCode inclusion, and exact-case completion behavior in `tests/e2e/login.spec.ts`
+
+### Implementation for User Story 3
+
+- [X] T028 [US3] Preserve the existing shadcn `Input`, `Button`, and form-feedback composition, pending disablement, and legacy `reference-old/src/screens/Login.jsx` layout while adapting any migrated outcome props in `src/features/auth/components/login-form.tsx`
+
+**Checkpoint**: The response fix introduces no loading, accessibility, or visual regression.
+
+---
+
+## Phase 8: Polish & Cross-Cutting Validation
+
+**Purpose**: Remove stale schema assumptions and validate the complete feature against
+the contract, quickstart, and project constitution.
+
+- [X] T029 [P] Replace any remaining lowercase-envelope or flat camelCase auth fixtures and assertions with exact-case contract examples, retaining lowercase only in explicit rejection cases, across `tests/features/auth/` and `tests/e2e/`
+- [X] T030 Run lint, TypeScript checking, and unit/component auth tests using the scripts in `package.json`, resolving contract-migration failures in `src/features/auth/`, `src/lib/auth-storage.ts`, and affected tests
+- [X] T031 Run Playwright login/route-protection scenarios and the Next.js production build using `playwright.config.ts` and `package.json`, resolving any integration or build regression
+- [X] T032 Execute every scenario in `specs/002-user-login/quickstart.md` and record any verified deviation or constitution exception in `specs/002-user-login/plan.md`
 
 ---
 
@@ -169,79 +190,117 @@ backend contract.
 
 ### Phase Dependencies
 
-- **Setup (Phase 1)**: No dependencies; initializes the application and tooling.
-- **Foundational (Phase 2)**: Depends on Setup and blocks all user-story work. T007 is
-  the backend contract gate.
-- **User Story 1 (Phase 3)**: Depends on T007-T012 and is the MVP increment.
-- **User Story 2 (Phase 4)**: Depends on the shared mutation and form from Phase 3; it
-  extends failure handling for the same login flow.
-- **User Story 3 (Phase 5)**: Depends on the shared form and mutation from Phase 3; it
-  hardens validation, loading, and accessibility behavior.
-- **User Story 4 (Phase 6)**: Depends on Foundational storage/session boundaries and can
-  be validated independently with seeded auth state.
-- **Polish (Phase 7)**: Depends on all desired user stories.
+- **Setup (Phase 1)**: Starts immediately and establishes canonical fixtures.
+- **Foundational (Phase 2)**: Depends on T001 and blocks all user-story implementation.
+- **US5 (Phase 3)**: Depends on T002; establishes the contract decoder and success mapper.
+- **US1 (Phase 4)**: Depends on US5; persists and consumes validated success data.
+- **US2 (Phase 5)**: Depends on US5 and the US1 mutation/storage boundary; adds failure outcomes.
+- **US4 (Phase 6)**: Depends on US1's stored-session representation; independent of US2 UI work.
+- **US3 (Phase 7)**: Depends on the final US1/US2 mutation outcomes; verifies unchanged form behavior.
+- **Polish (Phase 8)**: Depends on all selected user-story phases.
 
-### User Story Dependencies
+### User Story Completion Order
 
-- **US1 (P1)**: Can start after Foundational; no dependency on US2 or US3.
-- **US2 (P1)**: Uses US1's mutation and form boundary, then adds failure behavior.
-- **US3 (P2)**: Uses US1's form and mutation boundary, then adds validation/loading and
-  accessibility hardening.
-- **US4 (P1)**: Can start after Foundational using the shared auth storage contract; it
-  does not require US2 or US3 to be complete.
+```text
+Setup → Foundational → US5 → US1 → US2 → US3
+                              └──→ US4
+US2 + US3 + US4 → Polish
+```
+
+- **US5 (P1)**: First among equal-priority stories because every other auth boundary
+  requires the authoritative decoder and mapper.
+- **US1 (P1)**: Requires US5; delivers the usable successful-login increment.
+- **US2 (P1)**: Requires shared US1 mutation/storage integration but is independently
+  verified with failed responses.
+- **US4 (P1)**: Requires only the US1 stored-session shape and may proceed in parallel with US2.
+- **US3 (P2)**: Runs after outcome handling stabilizes and independently verifies form behavior.
+
+### Within Each User Story
+
+- Write/update the listed tests first and observe the expected regression failure.
+- Implement types/decoder before mapper, mapper before persistence, and persistence before route consumers.
+- Complete the independent test before moving to the next dependent story.
+- Tasks sharing a file across phases are intentionally sequential; `[P]` only marks
+  work on separate files that is safe at that point.
 
 ### Parallel Opportunities
 
-- T002-T006 can run in parallel after T001 when they touch separate configuration files.
-- T008-T010 and T012 can run in parallel after T007.
-- T013 can complete after T008-T012 establishes the shared auth boundary.
-- T014-T016 can run in parallel after T013.
-- T021-T022 can run in parallel after US1 establishes the shared login flow.
-- T026-T028 can run in parallel after the login form route exists.
-- T032-T034 can run in parallel after the auth storage contract is stable.
-- T038-T039 can run in parallel after the final backend contract and route policy are confirmed.
+- After T002, T003/T004 and then T005/T006 can run as file-isolated pairs.
+- In US1, T007-T009 can run together; T010 and T012 can run together before T011 integration.
+- In US2, T013-T015 can run together; T016 and T018 can run together before T017 integration.
+- US4 can proceed in parallel with US2 after US1 is complete; T019-T021 are parallel test tasks.
+- In US3, T025-T027 can run together before T028.
+- T029 can run independently before the serial full validation tasks T030-T032.
+
+## Parallel Example: User Story 5
+
+```text
+Task T003: API casing and malformed-envelope tests in tests/features/auth/login-api.test.ts
+Task T004: Complete Data validation tests in tests/features/auth/login-response.test.ts
+```
 
 ## Parallel Example: User Story 1
 
 ```text
-Task: T014 response mapper tests in tests/features/auth/login-response.test.ts
-Task: T015 auth storage tests in tests/features/auth/auth-storage.test.ts
-Task: T016 mutation success tests in tests/features/auth/use-login.test.tsx
+Task T007: Nested auth-storage write tests in tests/features/auth/auth-storage.test.ts
+Task T008: Successful mutation tests in tests/features/auth/use-login.test.tsx
+Task T009: Exact-case browser success mock in tests/e2e/login.spec.ts
+```
+
+## Parallel Example: User Story 2
+
+```text
+Task T013: HTTP/backend status separation tests in tests/features/auth/login-api.test.ts
+Task T014: Business outcome tests in tests/features/auth/login-errors.test.ts
+Task T015: Existing-session preservation tests in tests/features/auth/login-failure-flow.test.ts
 ```
 
 ## Parallel Example: User Story 4
 
 ```text
-Task: T032 anonymous route-protection e2e coverage in tests/e2e/route-protection.spec.ts
-Task: T033 authenticated entry-route e2e coverage in tests/e2e/route-protection.spec.ts
-Task: T034 route-access session classification tests in tests/features/auth/route-access.test.ts
+Task T019: Untrusted stored-session tests in tests/features/auth/auth-storage.test.ts
+Task T020: Route policy unit tests in tests/features/auth/route-access.test.ts
+Task T021: Browser route-protection seeds in tests/e2e/route-protection.spec.ts
+```
+
+## Parallel Example: User Story 3
+
+```text
+Task T025: Form validation regression in tests/components/login-form-validation.test.tsx
+Task T026: Loading/settled regression in tests/components/login-form-loading.test.tsx
+Task T027: Keyboard/accessibility browser regression in tests/e2e/login.spec.ts
 ```
 
 ## Implementation Strategy
 
-### MVP First (User Story 1 Only)
+### Contract MVP
 
-1. Complete Phase 1 setup.
-2. Complete Phase 2 and confirm the backend contract in T007.
-3. Complete US1 and validate successful login independently.
-4. Stop and verify localStorage safety, redirect, and authenticated context.
+1. Complete T001-T002.
+2. Complete US5 (T003-T006) and prove exact uppercase success no longer produces
+   `MALFORMED_RESPONSE`.
+3. Complete US1 (T007-T012) to deliver usable persistence and redirect.
+4. Stop and validate the US5 + US1 slice independently before expanding failure/route behavior.
 
 ### Incremental Delivery
 
-1. Add US1 for successful login and release/demo the core flow.
-2. Add US2 for invalid credentials and service failures.
-3. Add US3 for validation, loading, keyboard, and accessibility hardening.
-4. Add US4 for default-protected routes and authenticated entry redirects.
-5. Complete polish validation and update contract documentation.
+1. **US5**: Correct wire decoding and success mapping.
+2. **US1**: Persist the safe nested session and redirect.
+3. **US2**: Add complete business/transport failure behavior.
+4. **US4**: Align stored-session route protection; may run alongside US2.
+5. **US3**: Confirm loading, validation, accessibility, and visual behavior are unchanged.
+6. **Polish**: Remove stale fixtures and run all quickstart/quality gates.
+
+### Suggested MVP Scope
+
+The smallest deployable fix is **Setup + Foundational + US5 + US1 (T001-T012)**. US5
+alone proves the contract regression is corrected, while US1 makes that correction usable
+through persistence, authenticated context, and dashboard navigation.
 
 ## Notes
 
-- Every task includes an exact file path or a clearly identified repository path.
-- No task may invent the backend endpoint, response shape, or route-access policy; T007
-  confirms the backend contract before those values are used in source code.
-- The feature MUST reuse shadcn UI primitives, use Tailwind for layout, and use TanStack
-  Query for the login API mutation.
-- Only T040 remains open. On July 29, 2026, Playwright still timed out waiting for the
-  Next.js web server and `npm run build` exceeded the execution window in this
-  environment, while lint, type-check, and unit/component tests passed for the completed
-  scope.
+- Use Next.js commands and paths only; Vitest may use Vite internals solely as test tooling.
+- Keep TanStack Query in `src/features/auth/hooks/use-login.ts`; do not add component-level fetches.
+- Do not introduce Flowbite React or redesign the login form. Reuse existing shadcn UI
+  and preserve `reference-old/src/screens/Login.jsx` layout, spacing, sizing, style, and colors.
+- Preserve lowercase examples only where a test explicitly proves they are rejected.
+- Do not persist `Message`, credentials, or unknown backend fields.

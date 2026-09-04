@@ -1,90 +1,95 @@
-# Quickstart: Validate User Login
+# Quickstart: Validate User Login Contract Alignment
 
 ## Prerequisites
 
-- The Next.js application and package lockfile are available.
-- TanStack Query is configured for the application.
-- shadcn UI primitives used by the form are installed.
-- The backend endpoint and response shape have been filled into
-  [auth-login.md](contracts/auth-login.md).
-- `NEXT_PUBLIC_LOGIN_API_URL` points to the backend login endpoint.
-- A test account with valid credentials is available.
+- `NEXT_PUBLIC_LOGIN_API_URL` points to the login endpoint.
+- The Next.js dependencies and browser dependencies are installed.
+- A backend test account or HTTP mock is available.
 
-## Scenario 1: Successful login
+## Scenario 1: Exact-case successful login
 
-1. Open the login route.
-2. Enter a valid `username` and password.
-3. Submit the form once.
-4. Confirm the submit control enters a pending state and prevents another submission.
-5. Confirm the browser generates a FingerprintJS `visitorId` and sends it as
-   `machineCode` in the request body.
-6. Return a backend response with `status: 1` and the agreed session/user fields.
-7. Confirm the response mapper produces only safe-to-store data.
-8. Confirm one namespaced localStorage record contains the mapped backend response.
-9. Confirm the browser redirects to `/dashboard`.
+1. Open `/login`, enter valid credentials, and submit once.
+2. Confirm the request body is `{ username, password, machineCode }` and `machineCode`
+   is the FingerprintJS `visitorId`.
+3. Return the complete `Status: 1` example from
+   [auth-login.md](contracts/auth-login.md), optionally in a different property order.
+4. Confirm no `MALFORMED_RESPONSE` is produced.
+5. Confirm one namespaced localStorage record contains `Status: 1` and the allowlisted
+   nested `Data` fields using their exact backend names.
+6. Confirm no password, `Message`, or unknown response field is stored.
+7. Confirm redirect to `/dashboard` and authenticated UI reads `Data.user_name`.
 
-Expected result: the authenticated context is available after redirect.
+Expected: all eight success fields survive validation and session creation.
 
-## Scenario 2: Invalid credentials
+## Scenario 2: Lowercase-only regression
 
-1. Enter invalid credentials.
-2. Submit the form.
-3. Return the backend's finalized invalid-credentials response.
+Return HTTP 200 with `{ "status": 1, "message": "ok", "data": {} }`.
 
-Expected result: a clear safe error is displayed, loading ends, the user remains on the
-login page, and no new session is persisted.
+Expected: the response is `MALFORMED_RESPONSE`, no session is written, the user remains
+on `/login`, and recoverable invalid-response feedback is visible.
 
-## Scenario 3: Two-factor response
+## Scenario 3: Incomplete successful Data
 
-1. Submit valid credentials.
-2. Return a response with `status: -131`.
+Repeat a `Status: 1` response with `Data` null, non-object, and with each required field
+missing or invalid. Also test empty `roles` and `permissions` arrays.
 
-Expected result: the UI displays `Tính năng xác thực 2 yếu tố đang phát triển`, does not
-persist a session, and does not start a 2FA flow.
+Expected: null/non-object/partial data is malformed; empty role/permission arrays remain
+valid when all other required fields are valid. No partial session is persisted.
 
-## Scenario 4: Service failure and malformed success
+## Scenario 4: Two-factor business outcome
 
-1. Submit valid-looking credentials.
-2. Simulate a network failure, server failure, or response missing a required agreed
-   field.
+Return `{ "Status": -131, "Message": "Yêu cầu xác thực hai yếu tố", "Data": null }`.
 
-Expected result: a recoverable service error is displayed, loading ends, no partial
-session is stored, and the user remains on the login page.
+Expected: the UI shows `Tính năng xác thực 2 yếu tố đang phát triển`, does not report
+malformed data, does not persist a session, and does not redirect or start a 2FA flow.
 
-## Scenario 5: Form validation and accessibility
+## Scenario 5: Generic business and transport failures
 
-1. Submit with the identifier empty, then with the password empty.
-2. Navigate the form using only the keyboard.
-3. Inspect the error and pending status feedback.
+1. Return a parseable non-success `Status` with uppercase `Message`.
+2. Return a non-OK HTTP response with uppercase `Message`.
+3. Repeat using only lowercase `message`, then simulate network failure and invalid JSON.
 
-Expected result: field-level feedback appears without an API call; all controls have
-accessible names and the flow is completable without a pointer.
+Expected: uppercase `Message` is the only backend feedback source; lowercase `message`
+is ignored. Business and transport errors remain distinct, loading ends, and an existing
+valid session is not overwritten.
 
-## Scenario 6: Anonymous route protection
+## Scenario 6: Form behavior and accessibility
 
-1. Clear the namespaced authentication record from localStorage.
-2. Open `/dashboard` and any other protected route directly.
-3. Confirm the route guard remains in a checking state until the session decision is made.
+1. Submit with username empty, then password empty.
+2. Submit a valid form against a delayed response and press Enter repeatedly.
+3. Navigate and correct the form using only the keyboard.
 
-Expected result: protected content is not rendered and the browser redirects to `/login`.
+Expected: no invalid form calls the API; only one pending request is active; accessible
+field/status feedback remains unchanged.
 
-## Scenario 7: Authenticated entry redirects
+## Scenario 7: Route and stored-session validation
 
-1. Store a valid successful authentication response in the namespaced localStorage record.
-2. Open `/` and then `/login` directly.
+1. Seed the exact stored session from the contract and open `/`, `/login`, and a
+   protected route.
+2. Repeat with invalid JSON, a primitive value, a lowercase legacy session, null/partial
+   `Data`, and empty token/user/organization fields.
 
-Expected result: both routes redirect to `/dashboard` without a redirect loop.
+Expected: the valid session redirects entry/login to `/dashboard` and permits protected
+routes. Every malformed or incomplete record is anonymous and redirects protected routes
+to `/login` without rendering protected content or looping.
+
+## Automated regression matrix
+
+| Boundary | Required coverage |
+|----------|-------------------|
+| API decoder | uppercase success, lowercase rejection, missing `Status`, invalid JSON, HTTP failure using uppercase `Message` |
+| Response mapper | preserve every required `Data` field; reject null/partial success; accept empty arrays and reordered properties |
+| Mutation hook | success persists then redirects; `-131` and generic failure do neither |
+| Storage | nested allowlist only, password excluded, failed login does not overwrite |
+| Route access | exact session authenticated; stale lowercase/partial/malformed records anonymous |
+| E2E | real-case login success and lowercase regression; route protection with exact stored session |
 
 ## Validation commands
 
-Use the repository's configured package manager after the app is initialized:
-
-```text
-lint
-type-check
-unit/component tests
-login end-to-end smoke test
-build
+```powershell
+npm run lint
+npm run type-check
+npm test -- tests/features/auth tests/components
+npm run test:e2e -- tests/e2e/login.spec.ts tests/e2e/route-protection.spec.ts
+npm run build
 ```
-
-Exact commands are finalized from `package.json` during implementation.
