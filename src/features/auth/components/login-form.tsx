@@ -38,6 +38,9 @@ export function LoginForm() {
   });
 
   const serviceError = login.error instanceof Error ? login.error.message : null;
+  const visibleError = login.twoFactorMessage
+    ? null
+    : login.businessErrorMessage ?? serviceError;
 
   return (
     <form onSubmit={onSubmit} className="space-y-5" noValidate aria-describedby="login-status">
@@ -115,8 +118,8 @@ export function LoginForm() {
         {login.twoFactorMessage && (
           <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">{login.twoFactorMessage}</p>
         )}
-        {serviceError && (
-          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-destructive">{serviceError}</p>
+        {visibleError && (
+          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-destructive">{visibleError}</p>
         )}
       </div>
 

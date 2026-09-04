@@ -1,4 +1,5 @@
 import { readAuthSession } from "@/lib/auth-storage";
+import { isStoredAuthSession } from "@/features/auth/mappers/login-response";
 import type { StoredAuthSession } from "@/features/auth/types";
 
 export const LOGIN_ROUTE = "/login";
@@ -26,22 +27,7 @@ export function classifyRoute(pathname: string): RouteKind {
 }
 
 export function isAuthenticatedSession(session: unknown): session is StoredAuthSession {
-  if (!session || typeof session !== "object" || Array.isArray(session)) {
-    return false;
-  }
-
-  const candidate = session as StoredAuthSession;
-
-  return (
-    candidate.status === 1 &&
-    typeof candidate.accessToken === "string" &&
-    candidate.accessToken.length > 0 &&
-    typeof candidate.refreshToken === "string" &&
-    candidate.refreshToken.length > 0 &&
-    typeof candidate.user === "object" &&
-    candidate.user !== null &&
-    !Array.isArray(candidate.user)
-  );
+  return isStoredAuthSession(session);
 }
 
 export function resolveAuthState(session: unknown): Exclude<AuthState, "checking"> {

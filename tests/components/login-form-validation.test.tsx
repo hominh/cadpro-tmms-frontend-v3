@@ -17,11 +17,13 @@ function renderForm() {
 
 describe("LoginForm validation", () => {
   it("shows required messages without calling the API", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
     const user = userEvent.setup();
     renderForm();
     await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
 
     expect(await screen.findByText("Vui lòng nhập username hoặc email.")).toBeInTheDocument();
     expect(screen.getByText("Vui lòng nhập mật khẩu.")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

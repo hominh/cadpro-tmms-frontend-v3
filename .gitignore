@@ -35,3 +35,6 @@ Thumbs.db
 *.tmp
 *.swp
 *.tsbuildinfo
+
+#old src
+reference-old/

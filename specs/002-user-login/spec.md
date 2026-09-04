@@ -11,6 +11,13 @@ email/username và mật khẩu để đăng nhập. Sau khi đăng nhập thàn
 chuyển hướng vào trang chính. Nếu sai thông tin, hiển thị lỗi rõ ràng. Có xử lý trạng
 thái loading khi đang gọi API."
 
+**Amendment (2026-08-14)**: The backend response contract is case-sensitive. Its
+top-level fields are `Status`, `Message`, and `Data`; successful session fields are nested
+inside `Data` and retain their backend names, including `user_id`, `user_name`,
+`ToChuc_Id`, `access_token`, `refresh_token`, `roles`, `permissions`, and `exp_refresh`.
+Lowercase top-level aliases such as `status`, `message`, and `data` are not part of the
+contract.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Sign in Successfully (Priority: P1)
@@ -109,6 +116,35 @@ and that no redirect loop occurs.
 4. **Given** the user is already on `/login` without a valid session, **When** the route
    guard evaluates access, **Then** the user remains on `/login` without a redirect loop.
 
+### User Story 5 - Accept the Backend Response Contract (Priority: P1)
+
+As a user with valid credentials, I want the application to recognize the backend's
+actual response field names so that a valid login is not rejected as malformed.
+
+**Why this priority**: A field-name mismatch currently prevents every otherwise valid
+backend login response from creating a session.
+
+**Independent Test**: Return a successful response containing `Status`, `Message`, and a
+complete `Data` object with the documented child fields; verify that the response creates
+an authenticated session and redirects the user without a malformed-response error.
+
+**Acceptance Scenarios**:
+
+1. **Given** the backend returns `Status: 1` and a complete `Data` object, **When** the
+   response is processed, **Then** the login succeeds and all required session fields are
+   retained using the documented backend field names.
+2. **Given** the backend returns a non-success `Status` and a `Message`, **When** the
+   response is processed, **Then** the application presents the safe backend message and
+   does not create an authenticated session.
+3. **Given** the backend returns `Status: -131`, **When** the response is processed,
+   **Then** the application displays the defined two-factor-development message and does
+   not classify the response as malformed solely because successful session data is
+   absent.
+4. **Given** an HTTP-success response omits `Status`, uses lowercase `status`, or omits a
+   required successful-session field from `Data`, **When** the response is processed,
+   **Then** the application rejects it as malformed and does not persist a partial
+   session.
+
 ### Edge Cases
 
 - The identifier contains leading or trailing spaces; the system handles them
@@ -121,6 +157,16 @@ and that no redirect loop occurs.
   treated as authenticated and receives a recoverable authentication outcome.
 - The authentication service returns only part of the expected success payload; the
   system does not create a partial authenticated session and shows a recoverable error.
+- The authentication service returns the correct `Status`, `Message`, and `Data` envelope
+  with property insertion order different from examples; response handling remains
+  unaffected.
+- The response contains lowercase `status`, `message`, or `data` instead of the
+  case-sensitive contract fields; it is not silently interpreted as the documented
+  backend contract.
+- `Status` indicates success but `Data` is null, is not an object, or lacks
+  `access_token`, `refresh_token`, or required user context; no session is created.
+- `roles` or `permissions` is present but empty; the response remains structurally valid
+  when the backend intentionally grants no roles or permissions.
 - Existing authentication data is present in localStorage before a new login succeeds;
   it is not overwritten by a failed login attempt.
 - A previously authenticated user opens the login page; the system redirects them to the
@@ -150,9 +196,9 @@ and that no redirect loop occurs.
   request is pending.
 - **FR-006**: While authentication is pending, the system MUST prevent duplicate login
   submissions.
-- **FR-007**: When authentication succeeds, the system MUST persist the returned JWT
-  token, refresh token, and user information in localStorage for subsequent authenticated
-  requests and authenticated UI context.
+- **FR-007**: When authentication succeeds, the system MUST persist `Data.access_token`,
+  `Data.refresh_token`, and the approved user/session information from `Data` in
+  localStorage for subsequent authenticated requests and authenticated UI context.
 - **FR-008**: When authentication succeeds, the system MUST redirect the user to the
   system's main page.
 - **FR-009**: When credentials are rejected, the system MUST show a clear, user-safe
@@ -166,19 +212,21 @@ and that no redirect loop occurs.
   messages, URLs, or diagnostic output.
 - **FR-013**: The login interaction MUST be usable with keyboard navigation and provide
   accessible names and status feedback for its controls and errors.
-- **FR-014**: The authentication response MUST contain a JWT access token, a refresh
-  token, and user information for a successful login.
+- **FR-014**: The authentication response MUST use the case-sensitive top-level envelope
+  `Status`, `Message`, and `Data`; a successful response MUST contain the JWT access
+  token, refresh token, and user information inside `Data`.
 - **FR-015**: The system MUST generate `machineCode` from the device fingerprint visitor
   identifier and include it with `username` and `password` in the login request.
-- **FR-016**: When the authentication response status is `1`, the system MUST persist the
-  approved response data and redirect the user to `/dashboard`.
-- **FR-017**: When the authentication response status is `-131`, the system MUST display
+- **FR-016**: When the authentication response `Status` is `1`, the system MUST persist
+  the approved fields from `Data` and redirect the user to `/dashboard`.
+- **FR-017**: When the authentication response `Status` is `-131`, the system MUST display
   "Tính năng xác thực 2 yếu tố đang phát triển" without starting a 2FA flow.
-- **FR-018**: The persisted authentication record MUST keep the JWT access token and
-  refresh token distinguishable and MUST preserve the returned user information without
-  persisting the password.
-- **FR-019**: The system MUST validate that all required authentication response values
-  are present before creating an authenticated session or redirecting the user.
+- **FR-018**: The persisted authentication record MUST keep `access_token` and
+  `refresh_token` distinguishable and MUST preserve the approved returned user/session
+  information without persisting the password.
+- **FR-019**: The system MUST validate `Status` and, for a successful response, all
+  required `Data` values before creating an authenticated session or redirecting the
+  user.
 - **FR-020**: The system MUST use a namespaced localStorage record for authentication data
   and MUST remove or replace stale authentication data according to the login outcome.
 - **FR-021**: Automatic refresh-token renewal is out of scope for this feature; the
@@ -193,16 +241,39 @@ and that no redirect loop occurs.
   local authentication data as unauthenticated.
 - **FR-026**: Public routes, including `/login`, MUST remain accessible to unauthenticated
   users and MUST NOT redirect them in a loop.
+- **FR-027**: Response field names MUST be interpreted case-sensitively according to the
+  backend contract: `Status`, `Message`, and `Data` are valid; `status`, `message`, and
+  `data` MUST NOT be treated as equivalent aliases.
+- **FR-028**: A successful `Data` object MUST support the backend fields `user_id`,
+  `user_name`, `ToChuc_Id`, `access_token`, `refresh_token`, `roles`, `permissions`, and
+  `exp_refresh` without renaming or dropping them before contract validation.
+- **FR-029**: `Status` MUST determine the business outcome independently of the HTTP
+  status code, while the HTTP status code MUST continue to distinguish transport-level
+  success and failure.
+- **FR-030**: When the backend supplies a safe `Message` for a failed login, the system
+  MUST use that field as the service error message and MUST NOT attempt to read a
+  lowercase `message` property.
+- **FR-031**: The system MUST report `MALFORMED_RESPONSE` only when the documented
+  case-sensitive envelope or the fields required for the applicable outcome are missing
+  or invalid; a complete `Status: 1` response MUST NOT be rejected due to lowercase-field
+  expectations in the client.
+- **FR-032**: Shared response types, validation, session mapping, route-access checks, and
+  login outcome handling MUST agree on the same documented field names and nesting.
+- **FR-033**: Automated contract examples and tests MUST use the exact backend casing and
+  MUST include a regression case proving that a valid `Status`/`Data` response is accepted.
 
 ### Key Entities *(include if feature involves data)*
 
 - **Login Credentials**: The user-provided identifier and password submitted for
   authentication; the password is sensitive and must not be persisted by the UI.
-- **Authentication Session**: The authenticated state represented by the returned token,
-  refresh token, validity, and authenticated user context. The session is persisted as a
-  namespaced localStorage record containing `accessToken`, `refreshToken`, and `user`.
-- **User Profile**: The user information returned by the authentication service and
-  retained for authenticated UI context.
+- **Authentication Response Envelope**: The case-sensitive `Status`, `Message`, and
+  `Data` structure returned by the backend. `Status` determines the business outcome,
+  `Message` carries service feedback, and `Data` carries successful session context.
+- **Authentication Session**: The authenticated state represented by `Data.access_token`,
+  `Data.refresh_token`, `Data.exp_refresh`, organization context, roles, permissions, and
+  authenticated user context. It is persisted in one namespaced localStorage record.
+- **User Profile**: The backend user information identified by fields including
+  `user_id`, `user_name`, and `ToChuc_Id`, retained for authenticated UI context.
 - **Login Outcome**: The success, invalid-credential, validation, or service-failure
   result that determines the visible UI state and navigation behavior.
 - **Route Access Policy**: The public/protected classification and redirect destination
@@ -232,11 +303,19 @@ and that no redirect loop occurs.
   without a redirect loop.
 - **SC-010**: 100% of malformed or incomplete stored sessions are treated as
   unauthenticated for route access decisions.
+- **SC-011**: 100% of valid backend responses using `Status: 1` and a complete `Data`
+  object create the expected authenticated session without a `MALFORMED_RESPONSE` error.
+- **SC-012**: 100% of contract tests use the exact `Status`, `Message`, and `Data` casing,
+  and at least one regression test rejects a lowercase-only envelope as undocumented.
+- **SC-013**: 100% of successful-response tests preserve `user_id`, `user_name`,
+  `ToChuc_Id`, `access_token`, `refresh_token`, `roles`, `permissions`, and `exp_refresh`
+  through response validation and session creation.
 
 ## Assumptions
 
 - The authentication service accepts `username`, `password`, and `machineCode`, and
-  returns a status plus authentication and user information on success.
+  returns the case-sensitive `Status`, `Message`, and `Data` envelope. The response shape
+  supplied in this amendment is authoritative over earlier lowercase examples.
 - The main page route and authentication endpoint are defined during planning based on
   the existing backend contract.
 - The requested localStorage persistence is an explicit product constraint. Because

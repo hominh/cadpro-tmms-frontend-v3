@@ -8,8 +8,8 @@
 
 ## Content Quality
 
-- [x] No incidental implementation details; the requested JWT response and localStorage
-  persistence are recorded as explicit feature constraints
+- [x] No incidental implementation details; the exact backend response casing, JWT
+  fields, and localStorage persistence are recorded as explicit contract constraints
 - [x] Focused on user value and business needs
 - [x] Written for non-technical stakeholders
 - [x] All mandatory sections completed
@@ -19,7 +19,8 @@
 - [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
-- [x] Success criteria are technology-agnostic (no implementation details)
+- [x] Success criteria are technology-agnostic except for the explicit backend field-name
+  contract required to prevent the reported regression
 - [x] All acceptance scenarios are defined
 - [x] Edge cases are identified
 - [x] Scope is clearly bounded
@@ -37,5 +38,10 @@
 - JWT token, refresh token, user information, localStorage persistence, and the
   localStorage security trade-off are explicit additions from the feature request. The
   implementation plan must define the namespaced key, lifetime, cleanup, and mitigation.
+- The case-sensitive `Status`, `Message`, and `Data` envelope plus the documented child
+  fields are authoritative contract requirements. Earlier lowercase examples are invalid.
+- The existing contract, shared response types, response mapper, route-access logic,
+  login hook, fixtures, and tests require downstream alignment; this specify command does
+  not modify implementation or design artifacts.
 - Registration, password reset, MFA, logout, and role administration are explicitly out
   of scope for this feature.

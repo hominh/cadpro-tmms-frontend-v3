@@ -1,66 +1,89 @@
-# Research: User Login
+# Research: User Login Contract Alignment
 
-## Decision: Use a TanStack Query mutation for login
+## Decision: Treat the backend envelope as exact and case-sensitive
 
-**Rationale**: Login is a server-side side effect, not a read query. TanStack Query
-recommends `useMutation` for server side effects and exposes pending, error, success, and
-settled lifecycle states that map directly to the login UI.
+**Rationale**: JSON property access is case-sensitive, and the backend/legacy integration
+uses `Status`, `Message`, and `Data`. Parsing JSON as `unknown` and checking exact own
+properties prevents a TypeScript assertion from hiding runtime drift. A lowercase-only
+envelope is malformed by contract.
 
-**Alternatives considered**: Direct `fetch` in the form was rejected because it duplicates
-request lifecycle handling and violates the project constitution. A query was rejected
-because login submits credentials and changes authentication state.
+**Alternatives considered**: Supporting uppercase and lowercase aliases was rejected
+because it violates FR-027 and masks future contract drift. Casting JSON directly to an
+interface was rejected because interfaces do not validate runtime values.
 
-**Reference**: [TanStack Query Mutations](https://tanstack.com/query/latest/docs/framework/react/guides/mutations)
+## Decision: Validate according to the business outcome
 
-## Decision: Compose shadcn form primitives and Tailwind layout utilities
+**Rationale**: `Status` determines the business outcome independently of the HTTP status.
+Every decoded envelope requires a numeric `Status`; a complete `Data` object is required
+only for `Status: 1`. `Status: -131` and other business failures remain valid envelopes
+without success-session data, and safe feedback comes only from uppercase `Message`.
 
-**Rationale**: shadcn's form guidance supports composing field, label, control, and error
-patterns. Existing shadcn primitives remain the first choice; Tailwind utilities provide
-responsive layout and visual state treatment without a second styling system.
+**Alternatives considered**: Requiring successful `Data` fields on every outcome was
+rejected because it incorrectly converts valid failures into `MALFORMED_RESPONSE`. Using
+HTTP status alone was rejected because it loses backend business semantics.
 
-**Alternatives considered**: A custom form system was rejected because it increases
-maintenance and visual inconsistency. A separate CSS layout layer was rejected because
-Tailwind is the project styling constraint.
+## Decision: Separate raw envelope, validated success, and stored-session types
 
-**References**: [shadcn/ui Forms](https://ui.shadcn.com/docs/forms),
-[Tailwind CSS](https://tailwindcss.com/docs/functions-and-directives)
+**Rationale**: A raw envelope may represent success or failure, while only validated
+success data may create a session. Distinct types make partial persistence impossible and
+keep the success invariant explicit. `roles` and `permissions` must be arrays but may be
+empty; token and identity values must be non-empty; `exp_refresh` accepts the documented
+string-or-number scalar until the backend publishes a narrower schema.
 
-## Decision: Isolate unknown backend details behind adapters
+**Alternatives considered**: One permissive interface with optional success properties
+was rejected because it recreates ambiguous partial sessions. Inventing role, permission,
+or expiry subfields without an authoritative schema was rejected.
 
-**Rationale**: The user explicitly deferred the endpoint and response shape. The form and
-mutation lifecycle can be implemented against typed adapter boundaries while the concrete
-endpoint, request fields, response mapping, and redirect route are updated in one place
-when backend information becomes available.
+## Decision: Persist an allowlisted nested success session
 
-**Alternatives considered**: Inventing an endpoint or response schema was rejected because
-it creates false integration certainty. Scattering placeholders through UI components was
-rejected because later backend changes would increase the change surface.
+**Rationale**: The application persists one namespaced record shaped as `{ Status: 1,
+Data: { ...approvedFields } }`. This preserves the documented names and nesting across
+the API, mapper, storage, route guard, and UI while excluding password, `Message`, and
+unknown backend fields. Writes occur atomically only after validation; failed logins do
+not overwrite an existing valid session.
 
-## Decision: Persist the approved backend response through one storage adapter
+**Alternatives considered**: Persisting the raw response was rejected because it can
+retain unapproved data. Flattening or camelCasing the session was rejected because it
+creates a second schema and invites consumer drift. Separate localStorage keys were
+rejected because partial writes can create inconsistent state.
 
-**Rationale**: The user requires localStorage persistence. One adapter can namespace the
-record, validate the response mapper output, exclude passwords/secrets, replace stale
-session data only after success, and clean up consistently.
+## Decision: Runtime-validate stored authentication data
 
-**Alternatives considered**: Writing unrelated localStorage keys was rejected because
-partial writes can create inconsistent sessions. Cookie-only storage was rejected because
-it does not satisfy the stated requirement.
+**Rationale**: localStorage is untrusted browser input. Route access must parse and
+validate `Status === 1`, nested `Data`, non-empty tokens and user/organization context,
+array roles/permissions, and `exp_refresh`. Invalid JSON, stale lowercase records, and
+partial sessions are anonymous and may be cleared.
 
-## Decision: Use a client-side route guard for localStorage-based access control
+**Alternatives considered**: `JSON.parse(...) as StoredAuthSession` was rejected because
+it provides no runtime guarantee. Treating legacy lowercase sessions as valid was
+rejected because it violates the authoritative contract.
 
-**Rationale**: `localStorage` is available only in the browser, so server middleware
-cannot reliably make the session decision. A client guard can wait in a checking state,
-read and validate the namespaced session, render no protected content during the check,
-then redirect anonymous users to `/login` or authenticated users from `/` and `/login` to
-`/dashboard`.
+## Decision: Keep TanStack Query and the existing UI lifecycle
 
-**Alternatives considered**: Middleware-only protection was rejected because it cannot read
-localStorage. Rendering protected pages first and redirecting afterward was rejected
-because it can briefly expose protected content and create a visible flash.
+**Rationale**: Login remains a server-side mutation. The existing `useMutation` owns
+pending, error, success, persistence, and navigation side effects. The contract correction
+does not change the shadcn/Tailwind form or its legacy-derived visual layout.
 
-## Deferred integration input
+**Alternatives considered**: Fetching directly in the form was rejected because it
+duplicates lifecycle logic and violates the project constitution. Redesigning the form
+was rejected because no visual change is requested.
 
-Before implementation, the backend owner must provide the endpoint path, HTTP method,
-request fields, success response shape, error response shape, token field semantics, and
-the expected main-page redirect route. These values are recorded as TBD in the contract
-artifact and are not treated as implementation blockers for the UI structure plan.
+## Decision: Test each authentication boundary
+
+**Rationale**: Existing lowercase fixtures can make all tests pass while the real backend
+fails. Canonical uppercase fixtures and focused API, mapper, hook, storage, route, and E2E
+tests identify which boundary regresses. Required cases include full uppercase success,
+`-131`, generic business failure, HTTP failure with uppercase `Message`, lowercase-only
+envelope, and incomplete success `Data`.
+
+**Alternatives considered**: E2E-only coverage was rejected because it is slower and does
+not isolate transport, decoding, persistence, or guard failures.
+
+## Legacy and implementation evidence
+
+`reference-old/src/context/AuthProvider.jsx` reads `response.Status`,
+`response.Message`, and `response.Data`, including `Data.ToChuc_Id`, `access_token`,
+`refresh_token`, `exp_refresh`, `user_name`, `permissions`, and `user_id`; it also handles
+`Status === -131`. `reference-old/src/screens/Login.jsx` remains the visual reference.
+The current source and tests use the obsolete lowercase/flat shape across all auth
+boundaries, so they must be changed as one coordinated implementation slice.
